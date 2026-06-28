@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CardioAI — Cardiac Phase Predictor</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --card: #1a2235;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.15);
+    --text: #f0f4ff;
+    --text-muted: #8892a4;
+    --accent: #3b82f6;
+    --accent-glow: rgba(59,130,246,0.18);
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(17,24,39,0.8);
+    backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 20px; height: 20px; fill: white; }
+  header h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  header h1 span { color: var(--accent); }
+  .header-badge {
+    margin-left: auto;
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    color: var(--text-muted);
+  }
+
+  /* Layout */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2rem;
+    width: 100%;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  /* Section labels */
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title svg { width: 15px; height: 15px; opacity: 0.7; }
+
+  /* Form grid */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .form-group.full { grid-column: 1 / -1; }
+  label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    letter-spacing: 0.2px;
+  }
+  input[type="text"], input[type="number"], select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 14px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  select option { background: var(--surface); }
+  .unit {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: -2px;
+  }
+
+  /* Toggle group */
+  .toggle-group {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .toggle-group button {
+    flex: 1;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .toggle-group button.active {
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+  }
+  .toggle-group button:hover:not(.active) {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* Config panel */
+  .config-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0 12px;
+  }
+  .config-input label { font-size: 12px; color: var(--text-muted); white-space: nowrap; margin: 0; }
+  .config-input input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 9px 0;
+  }
+  .config-input input:focus { box-shadow: none; }
+  .config-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--danger);
+    flex-shrink: 0;
+  }
+  .config-dot.connected { background: var(--success); }
+
+  /* Predict button */
+  #predictBtn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: inherit;
+  }
+  #predictBtn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(59,130,246,0.35); }
+  #predictBtn:active { transform: translateY(0); }
+  #predictBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  #predictBtn svg { width: 18px; height: 18px; }
+
+  /* Right panel */
+  .right-panel { position: sticky; top: 90px; }
+
+  /* Result card */
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+  }
+  .result-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .result-body { padding: 1.5rem; }
+
+  .result-placeholder {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+  }
+  .result-placeholder svg { width: 40px; height: 40px; opacity: 0.2; margin-bottom: 12px; }
+  .result-placeholder p { font-size: 13px; }
+
+  /* Prediction display */
+  .prediction-phase {
+    text-align: center;
+    padding: 1.5rem 1rem;
+  }
+  .phase-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-radius: 100px;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+  .phase-badge.non-mi { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+  .phase-badge.acute { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+  .phase-badge.sub-acute { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+  .phase-badge.chronic { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+
+  .phase-desc { font-size: 12px; color: var(--text-muted); }
+
+  /* Confidence bars */
+  .confidence-list { display: flex; flex-direction: column; gap: 10px; }
+  .conf-item { display: flex; flex-direction: column; gap: 5px; }
+  .conf-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+  .conf-name { color: var(--text-muted); font-weight: 500; }
+  .conf-val { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .conf-bar-bg {
+    height: 5px;
+    background: var(--surface);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .conf-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-top: 1rem;
+  }
+  .status-bar.error { background: rgba(239,68,68,0.1); color: #fca5a5; border: 1px solid rgba(239,68,68,0.2); }
+  .status-bar.info { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.2); }
+  .status-bar.success { background: rgba(16,185,129,0.1); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.2); }
+  .status-bar svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  /* Inference text */
+  .inference-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    word-break: break-all;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .inference-box span.highlight { color: var(--accent); }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; }
+    .right-panel { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+    </svg>
+  </div>
+  <h1>Cardio<span>AI</span></h1>
+  <div class="header-badge">BiomedBERT · Transformer</div>
+</header>
+
+<main>
+  <!-- LEFT: Input Form -->
+  <div>
+    <!-- Kaggle Config -->
+    <div class="section-label">Configuration</div>
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/></svg>
+        Kaggle Endpoint
+      </div>
+      <div class="config-input" style="margin-bottom:10px">
+        <div class="config-dot" id="statusDot"></div>
+        <label>ngrok URL</label>
+        <input type="text" id="kaggleUrl" placeholder="https://xxxx-xxxx.ngrok-free.app" />
+      </div>
+      <button onclick="testConnection()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text-muted);font-size:12px;cursor:pointer;font-family:inherit;width:100%;transition:all 0.15s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='var(--text-muted)'">
+        Test Connection
+      </button>
+      <div id="connStatus"></div>
+    </div>
+
+    <!-- Patient Demographics -->
+    <div class="section-label">Patient Demographics</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Age</label>
+          <input type="number" id="Age" value="44" min="1" max="120" />
+          <span class="unit">years</span>
+        </div>
+        <div class="form-group">
+          <label>Sex</label>
+          <div class="toggle-group">
+            <button class="active" onclick="toggleSex(this,'Male')">Male</button>
+            <button onclick="toggleSex(this,'Female')">Female</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Hypertension</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Hypertension','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Hypertension','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Diabetes Mellitus</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Diabetes_Mellitus','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Diabetes_Mellitus','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Smoking</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Smoking','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Smoking','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Hyperlipidaemia</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Hyperlipidaemia','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Hyperlipidaemia','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Prior MI</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Prior_MI','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Prior_MI','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Family History (CAD)</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Family_History_CAD','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Family_History_CAD','No')">No</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Symptoms -->
+    <div class="section-label">Symptoms</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Chest Pain</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Chest_Pain','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Chest_Pain','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Shortness of Breath</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Shortness_of_Breath','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Shortness_of_Breath','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nausea</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Nausea','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Nausea','No')">No</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Sweating</label>
+          <div class="toggle-group">
+            <button onclick="toggleBool(this,'Sweating','Yes')">Yes</button>
+            <button class="active" onclick="toggleBool(this,'Sweating','No')">No</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vitals & Labs -->
+    <div class="section-label">Vitals & Laboratory</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Blood Pressure</label>
+          <input type="text" id="Blood_Pressure_mmHg" value="120/80" placeholder="120/80" />
+          <span class="unit">mmHg (systolic/diastolic)</span>
+        </div>
+        <div class="form-group">
+          <label>Heart Rate</label>
+          <input type="number" id="Heart_Rate_bpm" value="75" min="30" max="220" />
+          <span class="unit">bpm</span>
+        </div>
+        <div class="form-group">
+          <label>hs-Troponin I</label>
+          <input type="number" id="hs_Troponin_I_ngL" value="0.006" step="0.0001" min="0" />
+          <span class="unit">ng/L</span>
+        </div>
+        <div class="form-group">
+          <label>Blood Glucose</label>
+          <input type="number" id="Blood_Glucose_mmolL" value="5.5" step="0.1" min="0" />
+          <span class="unit">mmol/L</span>
+        </div>
+        <div class="form-group full">
+          <label>Serum Creatinine</label>
+          <input type="number" id="Serum_Creatinine_mgdL" value="1.0" step="0.01" min="0" />
+          <span class="unit">mg/dL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Output Panel -->
+  <div class="right-panel">
+    <div class="section-label">Prediction</div>
+
+    <div class="result-card">
+      <div class="result-header">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;opacity:0.6"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+        Diagnostic Phase
+      </div>
+      <div class="result-body">
+        <div id="phaseDisplay">
+          <div class="result-placeholder">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm-1-5h2v2h-2zm0-8h2v6h-2z"/></svg>
+            <p>Fill in patient data and click<br>Run Prediction to see results.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-card">
+      <div class="result-header">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;opacity:0.6"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1  0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+        Confidence Matrix
+      </div>
+      <div class="result-body">
+        <div id="confidenceDisplay">
+          <div class="result-placeholder" style="padding:1rem;">
+            <p>Awaiting prediction…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-card">
+      <div class="result-header">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;opacity:0.6"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/></svg>
+        Inference Text
+      </div>
+      <div class="result-body">
+        <div class="inference-box" id="inferenceBox" style="color:var(--text-muted);font-style:italic;">
+          Model input will appear here after prediction.
+        </div>
+      </div>
+    </div>
+
+    <button id="predictBtn" onclick="runPrediction()">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      Run Prediction
+    </button>
+  </div>
+</main>
+
+<footer>CardioAI · Powered by BiomedBERT Transformer · For research use only · Not for clinical diagnosis</footer>
+
+<script>
+  // State storage for toggles
+  const state = {
+    Sex: 'Male',
+    Hypertension: 'No',
+    Diabetes_Mellitus: 'No',
+    Smoking: 'No',
+    Hyperlipidaemia: 'No',
+    Prior_MI: 'No',
+    Family_History_CAD: 'No',
+    Chest_Pain: 'No',
+    Shortness_of_Breath: 'No',
+    Nausea: 'No',
+    Sweating: 'No'
+  };
+
+  function toggleSex(btn, val) {
+    state.Sex = val;
+    btn.closest('.toggle-group').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function toggleBool(btn, key, val) {
+    state[key] = val;
+    btn.closest('.toggle-group').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  function getPayload() {
+    return {
+      Age: parseFloat(document.getElementById('Age').value),
+      Sex: state.Sex,
+      Chest_Pain: state.Chest_Pain,
+      Shortness_of_Breath: state.Shortness_of_Breath,
+      Nausea: state.Nausea,
+      Sweating: state.Sweating,
+      hs_Troponin_I_ngL: parseFloat(document.getElementById('hs_Troponin_I_ngL').value),
+      Blood_Glucose_mmolL: parseFloat(document.getElementById('Blood_Glucose_mmolL').value),
+      Serum_Creatinine_mgdL: parseFloat(document.getElementById('Serum_Creatinine_mgdL').value),
+      Hypertension: state.Hypertension,
+      Diabetes_Mellitus: state.Diabetes_Mellitus,
+      Smoking: state.Smoking,
+      Hyperlipidaemia: state.Hyperlipidaemia,
+      Prior_MI: state.Prior_MI,
+      Family_History_CAD: state.Family_History_CAD,
+      Blood_Pressure_mmHg: document.getElementById('Blood_Pressure_mmHg').value,
+      Heart_Rate_bpm: parseFloat(document.getElementById('Heart_Rate_bpm').value)
+    };
+  }
+
+  const LOCAL_BACKEND = 'http://localhost:8000';
+
+  async function testConnection() {
+    const kaggleUrl = document.getElementById('kaggleUrl').value.trim();
+    const dot = document.getElementById('statusDot');
+    const el = document.getElementById('connStatus');
+    if (!kaggleUrl) {
+      el.innerHTML = `<div class="status-bar error"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Enter an ngrok URL first.</div>`;
+      return;
+    }
+    el.innerHTML = `<div class="status-bar info"><div class="spinner" style="width:14px;height:14px;border-width:2px;"></div>Testing connection via local backend…</div>`;
+    try {
+      const res = await fetch(LOCAL_BACKEND + '/health', {
+        headers: { 'x-kaggle-url': kaggleUrl },
+        signal: AbortSignal.timeout(8000)
+      });
+      if (res.ok) {
+        dot.classList.add('connected');
+        el.innerHTML = `<div class="status-bar success"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>Local backend reachable. Kaggle URL saved.</div>`;
+      } else {
+        throw new Error('Backend returned ' + res.status);
+      }
+    } catch(e) {
+      dot.classList.remove('connected');
+      el.innerHTML = `<div class="status-bar error"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Cannot reach local backend at localhost:8000. Is uvicorn running?</div>`;
+    }
+  }
+
+  async function runPrediction() {
+    const kaggleUrl = document.getElementById('kaggleUrl').value.trim();
+    if (!kaggleUrl) {
+      document.getElementById('connStatus').innerHTML = `<div class="status-bar error"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Please enter your Kaggle ngrok URL.</div>`;
+      return;
+    }
+
+    const btn = document.getElementById('predictBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner"></div> Running BiomedBERT…`;
+
+    document.getElementById('phaseDisplay').innerHTML = `
+      <div style="text-align:center;padding:2rem;">
+        <div class="spinner" style="margin:0 auto 12px;width:28px;height:28px;border-width:3px;"></div>
+        <p style="font-size:13px;color:var(--text-muted)">Sending to Kaggle kernel via local backend…</p>
+      </div>`;
+
+    try {
+      const response = await fetch(LOCAL_BACKEND + '/predict', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-kaggle-url': kaggleUrl
+        },
+        body: JSON.stringify(getPayload()),
+        signal: AbortSignal.timeout(90000)
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({detail: response.statusText}));
+        throw new Error(err.detail || `Server error: ${response.status}`);
+      }
+      const data = await response.json();
+      renderResult(data);
+
+    } catch(e) {
+      document.getElementById('phaseDisplay').innerHTML = `
+        <div class="result-placeholder">
+          <p style="color:#fca5a5;">⚠ ${e.message}</p>
+        </div>`;
+      document.getElementById('connStatus').innerHTML = `<div class="status-bar error"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>${e.message}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg> Run Prediction`;
+    }
+  }
+
+  function renderResult(data) {
+    const phase = data.predicted_phase;
+    const scores = data.scores;
+    const inference = data.inference_text || '';
+
+    // Phase class
+    const phaseClass = phase.toLowerCase().replace('-', '-').replace(' ', '-');
+    const phaseIcons = { 'Non-MI': '✓', 'Acute': '⚠', 'Sub-acute': '◐', 'Chronic': '●' };
+    const phaseDescs = {
+      'Non-MI': 'No myocardial infarction detected',
+      'Acute': 'Active ischemic event — urgent care needed',
+      'Sub-acute': 'Recent MI in healing phase',
+      'Chronic': 'Old scar / established coronary disease'
+    };
+
+    document.getElementById('phaseDisplay').innerHTML = `
+      <div class="prediction-phase">
+        <div class="phase-badge ${phaseClass.includes('non') ? 'non-mi' : phaseClass.includes('acute') && !phaseClass.includes('sub') ? 'acute' : phaseClass.includes('sub') ? 'sub-acute' : 'chronic'}">
+          ${phaseIcons[phase] || '●'} ${phase}
+        </div>
+        <p class="phase-desc">${phaseDescs[phase] || ''}</p>
+      </div>`;
+
+    // Confidence bars
+    const colors = {
+      'Acute': '#ef4444',
+      'Chronic': '#818cf8',
+      'Non-MI': '#10b981',
+      'Sub-acute': '#f59e0b'
+    };
+    const confHTML = Object.entries(scores).map(([name, val]) => {
+      const pct = (val * 100).toFixed(2);
+      return `
+        <div class="conf-item">
+          <div class="conf-row">
+            <span class="conf-name">${name}</span>
+            <span class="conf-val">${pct}%</span>
+          </div>
+          <div class="conf-bar-bg">
+            <div class="conf-bar" style="width:${pct}%;background:${colors[name]||'#3b82f6'}"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('confidenceDisplay').innerHTML = `<div class="confidence-list">${confHTML}</div>`;
+
+    // Inference text
+    if (inference) {
+      document.getElementById('inferenceBox').innerHTML =
+        inference.replace(/(\w+):/g, '<span class="highlight">$1</span>:');
+    }
+  }
+</script>
+</body>
+</html>
